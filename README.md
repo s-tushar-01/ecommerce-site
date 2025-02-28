@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
@@ -68,3 +69,30 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+=======
+# 🛒 E-commerce Site
+
+This is a **full-stack e-commerce site** built using **React, Node.js, and SQLite**. 🚀  
+It allows users to **browse products, add them to a cart, and checkout**.
+
+## 🚀 Features
+✅ Browse a list of products  
+✅ Add items to the shopping cart 🛍️  
+✅ Remove items from the cart  
+✅ Checkout with order storage in SQLite  
+✅ Fully responsive with Bootstrap  
+
+## 📌 Tech Stack
+- **Frontend**: React, Bootstrap  
+- **Backend**: Node.js, Express.js  
+- **Database**: SQLite  
+
+---
+
+## 🛠️ Setup Instructions
+
+### **1️⃣ Clone the Repository**
+```bash
+git clone https://github.com/s-tushar-01/ecommerce-site.git
+cd ecommerce-site
+>>>>>>> d609141c81fe9fdbc417859dd71830e47836c2e8
