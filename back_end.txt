@@ -1,0 +1,186 @@
+/** @jsxImportSource https://esm.sh/react@18.2.0 */
+import React, { useState, useEffect } from "https://esm.sh/react@18.2.0";
+import { createRoot } from "https://esm.sh/react-dom@18.2.0/client";
+
+// Product type definition
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  description: string;
+  image: string;
+}
+
+// Cart item type
+interface CartItem extends Product {
+  quantity: number;
+}
+
+function App() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
+
+  useEffect(() => {
+    fetch('/products').then(res => res.json()).then(setProducts);
+  }, []);
+
+  const addToCart = (product: Product) => {
+    const existingItem = cart.find(item => item.id === product.id);
+    if (existingItem) {
+      setCart(cart.map(item => 
+        item.id === product.id 
+          ? {...item, quantity: item.quantity + 1} 
+          : item
+      ));
+    } else {
+      setCart([...cart, {...product, quantity: 1}]);
+    }
+  };
+
+  const removeFromCart = (productId: number) => {
+    setCart(cart.filter(item => item.id !== productId));
+  };
+
+  const checkout = async () => {
+    try {
+      const response = await fetch('/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cart)
+      });
+      if (response.ok) {
+        alert('Order placed successfully!');
+        setCart([]);
+      }
+    } catch (error) {
+      console.error('Checkout failed', error);
+    }
+  };
+
+  return (
+    <div style={{display: 'flex', fontFamily: 'Arial, sans-serif'}}>
+      <div style={{width: '70%', padding: '20px'}}>
+        <h2>Products</h2>
+        <div style={{display: 'flex', flexWrap: 'wrap'}}>
+          {products.map(product => (
+            <div key={product.id} style={{
+              border: '1px solid #ddd', 
+              margin: '10px', 
+              padding: '10px', 
+              width: '200px'
+            }}>
+              <h3>{product.name}</h3>
+              <p>${product.price.toFixed(2)}</p>
+              <p>{product.description}</p>
+              <button onClick={() => addToCart(product)}>
+                Add to Cart 🛒
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{width: '30%', padding: '20px', backgroundColor: '#f0f0f0'}}>
+        <h2>Cart 🛍️</h2>
+        {cart.map(item => (
+          <div key={item.id} style={{marginBottom: '10px'}}>
+            {item.name} - ${item.price} x {item.quantity}
+            <button onClick={() => removeFromCart(item.id)}>Remove</button>
+          </div>
+        ))}
+        <p>Total: ${cart.reduce((total, item) => total + item.price * item.quantity, 0).toFixed(2)}</p>
+        <button 
+          onClick={checkout} 
+          disabled={cart.length === 0}
+          style={{backgroundColor: cart.length ? 'green' : 'gray', color: 'white'}}
+        >
+          Checkout 💳
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function client() {
+  createRoot(document.getElementById("root")).render(<App />);
+}
+if (typeof document !== "undefined") { client(); }
+
+export default async function server(request: Request): Promise<Response> {
+  const { sqlite } = await import("https://esm.town/v/stevekrouse/sqlite");
+  const KEY = new URL(import.meta.url).pathname.split("/").at(-1);
+  const SCHEMA_VERSION = 1;
+
+  // Initialize products and orders tables
+  await sqlite.execute(`
+    CREATE TABLE IF NOT EXISTS ${KEY}_products_${SCHEMA_VERSION} (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      price REAL NOT NULL,
+      description TEXT,
+      image TEXT
+    )
+  `);
+
+  await sqlite.execute(`
+    CREATE TABLE IF NOT EXISTS ${KEY}_orders_${SCHEMA_VERSION} (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cart_items TEXT NOT NULL,
+      total_price REAL NOT NULL,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Seed some initial products if not exists
+  const productsCount = (await sqlite.execute(`SELECT COUNT(*) as count FROM ${KEY}_products_${SCHEMA_VERSION}`)).rows[0].count;
+  if (productsCount === 0) {
+    const initialProducts = [
+      { name: 'Wireless Headphones', price: 99.99, description: 'High-quality noise cancelling headphones', image: '' },
+      { name: 'Smart Watch', price: 199.99, description: 'Latest fitness tracking smartwatch', image: '' },
+      { name: 'Portable Bluetooth Speaker', price: 79.99, description: 'Waterproof outdoor speaker', image: '' }
+    ];
+
+    for (const product of initialProducts) {
+      await sqlite.execute(`
+        INSERT INTO ${KEY}_products_${SCHEMA_VERSION} (name, price, description, image) 
+        VALUES (?, ?, ?, ?)
+      `, [product.name, product.price, product.description, product.image]);
+    }
+  }
+
+  // Handle different routes
+  if (request.method === 'GET' && new URL(request.url).pathname === '/products') {
+    const products = await sqlite.execute(`SELECT * FROM ${KEY}_products_${SCHEMA_VERSION}`);
+    return new Response(JSON.stringify(products.rows), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  if (request.method === 'POST' && new URL(request.url).pathname === '/checkout') {
+    const cartItems = await request.json();
+    const totalPrice = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+
+    await sqlite.execute(`
+      INSERT INTO ${KEY}_orders_${SCHEMA_VERSION} (cart_items, total_price) 
+      VALUES (?, ?)
+    `, [JSON.stringify(cartItems), totalPrice]);
+
+    return new Response(JSON.stringify({ message: 'Order placed successfully' }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  return new Response(`
+    <html>
+      <head>
+        <title>E-Commerce Store</title>
+        <script src="https://esm.town/v/std/catch"></script>
+      </head>
+      <body>
+        <div id="root"></div>
+        <script type="module" src="${import.meta.url}"></script>
+      </body>
+    </html>
+  `, {
+    headers: { 'Content-Type': 'text/html' }
+  });
+}
